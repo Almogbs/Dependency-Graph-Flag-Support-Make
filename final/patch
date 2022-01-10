@@ -1,0 +1,180 @@
+diff -Naur source-orig/src/file.c source-new/src/file.c
+--- source-orig/src/file.c	2020-01-19 20:32:59.000000000 +0000
++++ source-new/src/file.c	2022-01-10 13:41:41.623467000 +0000
+@@ -986,6 +986,8 @@
+   putchar ('\n');
+ }
+ 
++
++
+ static void
+ print_file (const void *item)
+ {
+@@ -1099,6 +1101,40 @@
+     print_file ((const void *) f->prev);
+ }
+ 
++
++// mycode
++static FILE* dep_graph = 0;
++
++// mycode
++static void my_print_file (const void *item)
++{
++  const struct file *f = item;
++
++  if (no_builtin_rules_flag && f->builtin)
++    return;  
++  if (f->is_target) 
++  {
++    struct dep *deps = f->deps;
++    const struct dep *ood = 0;
++    for (; deps != 0; deps = deps->next)
++      if (! deps->ignore_mtime)
++        fprintf (dep_graph, "\t%s -> %s;\n", f->name, dep_name (deps));
++      else if (! ood)
++        ood = deps;
++  }
++}
++
++// mycode
++void my_print(const char* dep_file)
++{
++  dep_graph = fopen(dep_file , "w+");
++  if (dep_graph == NULL) return;
++  fprintf(dep_graph, "digraph depgraph {\n");
++  hash_map (&files, my_print_file);
++  fprintf(dep_graph, "}\n");
++  fclose(dep_graph);
++}
++
+ void
+ print_file_data_base (void)
+ {
+diff -Naur source-orig/src/filedef.h source-new/src/filedef.h
+--- source-orig/src/filedef.h	2020-01-03 07:11:27.000000000 +0000
++++ source-new/src/filedef.h	2022-01-10 13:31:21.399533000 +0000
+@@ -129,6 +129,9 @@
+ void print_file_data_base (void);
+ int try_implicit_rule (struct file *file, unsigned int depth);
+ int stemlen_compare (const void *v1, const void *v2);
++// mycode
++void my_print(const char* dep_file);
++
+ 
+ #if FILE_TIMESTAMP_HI_RES
+ # define FILE_TIMESTAMP_STAT_MODTIME(fname, st) \
+diff -Naur source-orig/src/main.c source-new/src/main.c
+--- source-orig/src/main.c	2020-01-19 20:32:59.000000000 +0000
++++ source-new/src/main.c	2022-01-10 12:31:45.254361000 +0000
+@@ -267,6 +267,9 @@
+ 
+ static char *jobserver_auth = NULL;
+ 
++// mycode
++static struct stringlist *depgraph = 0;
++
+ /* Handle for the mutex used on Windows to synchronize output of our
+    children under -O.  */
+ 
+@@ -452,6 +455,10 @@
+     { 'o', filename, &old_files, 0, 0, 0, 0, 0, "old-file" },
+     { 'O', string, &output_sync_option, 1, 1, 0, "target", 0, "output-sync" },
+     { 'W', filename, &new_files, 0, 0, 0, 0, 0, "what-if" },
++    //mycode
++    { 'G', filename, &depgraph, 0, 0, 0, 0, 0, "gen-depgraph"},
++
++	
+ 
+     /* These are long-style options.  */
+     { CHAR_MAX+1, strlist, &db_flags, 1, 1, 0, "basic", 0, "debug" },
+@@ -2169,6 +2176,89 @@
+         }
+     }
+ 
++  //mycode
++  if (depgraph != 0)
++  {
++    /*
++    FILE* dep_graph = fopen(depgraph->list[0] , "w+");
++    fprintf(dep_graph, "digraph depgraph {\n");
++    char* double_dot = ":";
++    char* space = " ";
++    char* token = NULL;
++    char* opener = NULL;
++    if (makefiles == 0)
++      {
++        FILE* make_file = fopen("makefile", "r");
++        if (!make_file)
++          {
++            return -15;
++          }
++        size_t len = 0;
++        char* line; 
++        while(getline(&line, &len, make_file) != -1)
++          {
++            if (strpbrk(line, double_dot) != NULL)
++              {
++                token = strtok(line, double_dot);
++                char* copy = clean_str(token);
++                token = strtok(NULL, double_dot);
++                token = strtok(token, space);
++                while(token != NULL)
++                  {
++                    char* clean_token = clean_str(token);
++                    if (strlen(clean_token) == 0)
++                    {
++                      free(clean_token);
++                      break;
++                    }
++                    fprintf(dep_graph, "\t%s -> %s;\n", copy, clean_token);
++                    free(clean_token);
++                    token = strtok(NULL, space);
++                  }
++                free(copy);
++              }
++          }
++        fclose(make_file);
++      }
++      else
++      {
++        for (int i = 0; i < makefiles->max; i++)
++        {
++          FILE* make_file = fopen(makefiles->list[i], "r");
++          if (!make_file)
++            {
++              return -16;
++            }
++          size_t len = 0;
++          char* line; 
++          while(getline(&line, &len, make_file) != -1)
++            {
++              if (strpbrk(line, double_dot) != NULL)
++                {
++                  token = strtok(line, double_dot);
++                  char* copy = clean_str(token);
++                  token = strtok(NULL, double_dot);
++                  token = strtok(token, space);
++                  while(token != NULL)
++                    {
++                      char* clean_token = clean_str(token);
++                      fprintf(dep_graph, "\t%s -> %s;\n", copy, clean_token);
++                      free(clean_token);
++                      token = strtok(NULL, space);
++                    }
++                  free(copy);
++                }
++            }
++          fclose(make_file);
++        }
++      }
++      fprintf(dep_graph, "}\n");
++      fclose(dep_graph);
++      */
++      my_print(depgraph->list[0]);
++
++  }
++
+   /* Initialize the remote job module.  */
+   remote_setup ();
+ 
