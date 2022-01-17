@@ -10,7 +10,7 @@
     cd Dependency-Graph-Flag-Support-Make
     tar make-4.3.tar.gz
     cd make-4.3
-    cp ../main.c src/main.c
+    cp ../. src/
     mkdir build
     cd build
     configure --prefix="$HOME/make/root"
